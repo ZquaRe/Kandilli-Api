@@ -5,7 +5,7 @@
  * @author Furkan Sezgin (ZquaRe)
  * @mail furkan-sezgin@hotmail.com
  */
-class earthquake
+class Earthquake
 {
 
     /**
@@ -69,7 +69,7 @@ class earthquake
                 'Ml' => $Key[6],
                 'Mw' => $Key[7],
                 'Location' => $this->NewLocation,
-                'Revize' => $Revize[0]
+                'Revize' => @$Revize[0]
             );
         }
         return json_encode($this->NewResult);
