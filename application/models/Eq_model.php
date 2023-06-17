@@ -3,161 +3,104 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Eq_model extends CI_Model
 {
-
+    // Veritabanında kullanılacak tablo adı
     private $tableName = 'earthquakes';
 
-    /***
-     * @return mixed
-     */
-    public function GetAll()
+    // Tüm deprem verilerini getiren fonksiyon
+    public function getAll()
     {
-        return $this->db->
-        order_by('eq_date', 'DESC')->order_by('eq_time', 'DESC')->get($this->tableName)->
-        result();
+        return $this->db
+            ->order_by('eq_date', 'DESC')  // Tarihe göre sıralama
+            ->order_by('eq_time', 'DESC')  // Zamana göre sıralama
+            ->get($this->tableName)  // Veriyi çekme
+            ->result();  // Sonucu döndürme
     }
 
-    /**
-     * @param $Date
-     * @param null $Limit
-     * @return |null
-     */
-    public function GetDate($Date, $Limit = null)
+    // Belirli bir tarihte olan depremleri getiren fonksiyon
+    public function getDate($date, $limit = null)
     {
-        if (!empty($Limit)) {
-            $Results = $this->db->
-            order_by('eq_date', 'DESC')->
-            order_by('eq_time', 'DESC')->
-            where('eq_date', $Date)->
-            limit($Limit)->
-            get($this->tableName)->
-            result();
-            if ($Results) {
-                return $Results;
-            } else {
-                return null;
-            }
+        $query = $this->db
+            ->order_by('eq_date', 'DESC')  // Tarihe göre sıralama
+            ->order_by('eq_time', 'DESC')  // Zamana göre sıralama
+            ->where('eq_date', $date);  // Belirtilen tarihle eşleşen veriler
+            
+        if (!empty($limit)) {  // Eğer limit belirtildiyse
+            $query = $query->limit($limit);  // Sorguya limiti ekle
+        }
+            
+        $results = $query->get($this->tableName)->result();  // Sonucu çek
+        
+        return $results ?: null;  // Eğer sonuç boşsa null döndür, değilse sonucu döndür
+    }
+
+    // Belirli sayıda deprem verisi getiren fonksiyon
+    public function getLimit($oneParam, $twoParam = 0)
+    {
+        $result = $this->db
+            ->order_by('eq_date', 'DESC')  // Tarihe göre sıralama
+            ->order_by('eq_time', 'DESC')  // Zamana göre sıralama
+            ->limit($oneParam, $twoParam)  // Belirtilen limit
+            ->get($this->tableName)  // Veriyi çekme
+            ->result();  // Sonucu döndürme
+        
+        return $result ?: null;  // Eğer sonuç boşsa null döndür, değilse sonucu döndür
+    }
+
+    // Belirli bir lokasyonda olan depremleri getiren fonksiyon
+    public function getLocation($oneParam, $twoParam = 0)
+    {
+        $result = $this->db
+            ->order_by('eq_date', 'DESC')  // Tarihe göre sıralama
+            ->order_by('eq_time', 'DESC')  // Zamana göre sıralama
+            ->like('eq_location', $oneParam)  // Lokasyonu belirtilen parametre ile eşleşen veriler
+            ->limit($twoParam)  // Belirtilen limit
+            ->get($this->tableName)  // Veriyi çekme
+            ->result();  // Sonucu döndürme
+        
+        return $result ?: null;  // Eğer sonuç boşsa null döndür, değilse sonucu döndür
+    }
+
+    // Belirli bir tarih aralığında olan depremleri getiren fonksiyon
+    public function getBetweenDate($oneParam, $twoParam, $limit = 0)
+    {
+        // Eğer ilk parametre ikinci parametreden büyükse, sonuçları ters sırala
+        if ($oneParam >= $twoParam) {
+            $query = $this->db
+                ->order_by('eq_date', 'DESC')  // Tarihe göre sıralama
+                ->order_by('eq_time', 'DESC')  // Zamana göre sıralama
+                ->where('eq_date >=', $twoParam)  // Belirtilen tarih aralığı ile eşleşen veriler
+                ->where('eq_date <=', $oneParam);  // Belirtilen tarih aralığı ile eşleşen veriler
         } else {
-            $Results = $this->db->
-            order_by('eq_date', 'DESC')->
-            order_by('eq_time', 'DESC')->
-            where('eq_date', $Date)->
-            get($this->tableName)->
-            result();
-            if ($Results) {
-                return $Results;
-            } else {
-                return null;
-            }
+            $query = $this->db
+                ->order_by('eq_date', 'ASC')  // Tarihe göre sıralama
+                ->order_by('eq_time', 'ASC')  // Zamana göre sıralama
+                ->where('eq_date >=', $oneParam)  // Belirtilen tarih aralığı ile eşleşen veriler
+                ->where('eq_date <=', $twoParam);  // Belirtilen tarih aralığı ile eşleşen veriler
         }
-
-
+        
+        if ($limit > 0) {  // Eğer limit belirtildiyse
+            $query = $query->limit($limit);  // Sorguya limiti ekle
+        }
+        
+        $result = $query->get($this->tableName)->result();  // Sonucu çek
+        
+        return $result ?: null;  // Eğer sonuç boşsa null döndür, değilse sonucu döndür
     }
 
-    /**
-     * @param $OneParam
-     * @param int $TwoParam
-     * @return |null
-     */
-    public function GetLimit($OneParam, $TwoParam = 0)
+    // Yeni deprem verisi ekleyen fonksiyon
+    public function add($params = array())
     {
-        $Result = $this->db->
-        order_by('eq_date', 'DESC')->
-        order_by('eq_time', 'DESC')->
-        limit($OneParam, $TwoParam)->
-        get($this->tableName)->
-        result();
-        if ($Result) {
-            return $Result;
-        } else {
-            return null;
+        $control = $this->db
+            ->select('eq_time, eq_latitude,eq_longitude,eq_depth')  // Kontrol edilecek alanlar
+            ->where('eq_time', $params['eq_time'])  // Zaman değeri eşleşmesi
+            ->where('eq_latitude', $params['eq_latitude'])  // Enlem değeri eşleşmesi
+            ->where('eq_longitude', $params['eq_longitude'])  // Boylam değeri eşleşmesi
+            ->where('eq_depth', $params['eq_depth'])  // Derinlik değeri eşleşmesi
+            ->get($this->tableName)  // Veriyi çekme
+            ->result();  // Sonucu döndürme
+
+        if (!$control) {  // Eğer kontrol edilen veri yoksa
+            return $this->db->insert($this->tableName, $params);  // Yeni veriyi ekle
         }
-    }
-
-    /**
-     * @param $OneParam
-     * @param int $TwoParam
-     * @return |null
-     */
-    public function GetLocation($OneParam, $TwoParam = 0)
-    {
-        $Result = $this->db->
-        order_by('eq_date', 'DESC')->
-        order_by('eq_time', 'DESC')->
-        like('eq_location', $OneParam)->
-        limit($TwoParam)->
-        get($this->tableName)->
-        result();
-        if ($Result) {
-            return $Result;
-        } else {
-            return null;
-        }
-    }
-
-    /***
-     * @param $OneParam
-     * @param $TwoParam
-     * @param int $Limit
-     * @return |null
-     */
-    public function GetBetweenDate($OneParam, $TwoParam, $Limit = 0)
-    {
-        // if($this->uri->segment(4) >= $this->uri->segment(3)) echo '1. parametre, 2. parametreden küçük';
-
-        if ($OneParam >= $TwoParam) {
-
-            $Result = $this->db->
-            order_by('eq_date', 'DESC')->
-            order_by('eq_time', 'DESC')->
-            where('eq_date >=', $TwoParam)->
-            where('eq_date <=', $OneParam)->
-            limit($Limit)->
-            get($this->tableName)->
-            result();
-            if ($Result) {
-                return $Result;
-            } else {
-                return null;
-            }
-        }
-        if ($OneParam <= $TwoParam) {
-            $Result = $this->db->
-            order_by('eq_date', 'ASC')->
-            order_by('eq_time', 'ASC')->
-            where('eq_date >=', $OneParam)->
-            where('eq_date <=', $TwoParam)->
-            limit($Limit)->
-            get($this->tableName)->
-            result();
-            if ($Result) {
-                return $Result;
-            } else {
-                return null;
-            }
-        }
-
-    }
-
-    /***
-     * @param array $Params
-     * @return mixed
-     */
-    public function Add($Params = array())
-    {
-
-        $Control = $this->db->
-        select('eq_time, eq_latitude,eq_longitude,eq_depth')->
-        where('eq_time', $Params['eq_time'])->
-        where('eq_latitude', $Params['eq_latitude'])->
-        where('eq_longitude', $Params['eq_longitude'])->
-        where('eq_depth', $Params['eq_depth'])->
-        get($this->tableName)->
-        result();
-
-        if (!$Control) {
-            return $this->db->insert($this->tableName, $Params);
-        }
-
-
     }
 }

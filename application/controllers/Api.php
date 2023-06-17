@@ -1,18 +1,19 @@
 <?php
-defined('BASEPATH') OR exit('No direct script access allowed');
+
+defined('BASEPATH') or exit('No direct script access allowed');
 
 class Api extends CI_Controller
 {
-    /***
+    /**
      * Api constructor.
      */
     public function __construct()
     {
         parent::__construct();
 
-        //When the page is refreshed, if there is a new earthquake, it automatically adds it to the database.
-        //If the page opens late, you can delete it.
-        self::cronjob();
+        // Sayfa yenilendiğinde yeni bir deprem varsa otomatik olarak veritabanına eklenir.
+        // Sayfa geç açılırsa bu işlemi silebilirsiniz.
+        $this->cronjob();
     }
 
     /**
@@ -20,21 +21,22 @@ class Api extends CI_Controller
      */
     public function index()
     {
-        foreach ($this->eqmodel->GetAll() as $Key) {
-            $Result[] = array(
-                'date' => $Key->eq_date,
-                'time' => $Key->eq_time,
-                'latitude' => $Key->eq_latitude,
-                'longitude' => $Key->eq_longitude,
-                'depth' => $Key->eq_depth,
-                'md' => $Key->eq_md,
-                'ml' => $Key->eq_ml,
-                'mw' => $Key->eq_mw,
-                'location' => $Key->eq_location,
-                'revize' => $Key->eq_revize,
-            );
+        $result = [];
+        foreach ($this->eqmodel->getAll() as $key) {
+            $result[] = [
+                'date' => $key->eq_date,
+                'time' => $key->eq_time,
+                'latitude' => $key->eq_latitude,
+                'longitude' => $key->eq_longitude,
+                'depth' => $key->eq_depth,
+                'md' => $key->eq_md,
+                'ml' => $key->eq_ml,
+                'mw' => $key->eq_mw,
+                'location' => $key->eq_location,
+                'revize' => $key->eq_revize,
+            ];
         }
-        return print_r(json_encode($Result));
+        return print_r(json_encode($result));
     }
 
     /**
@@ -42,190 +44,186 @@ class Api extends CI_Controller
      */
     public function limit()
     {
-        $this->OnePara = abs($this->uri->segment(3));
-        $this->TwoPara = abs($this->uri->segment(4));
+        $onePara = abs($this->uri->segment(3));
+        $twoPara = abs($this->uri->segment(4));
 
-        if (!empty($this->OnePara) && is_numeric($this->OnePara) || !empty($this->TwoPara) && is_numeric($this->TwoPara)) {
-            if ($this->OnePara != 0) {
-
-                foreach ($this->eqmodel->GetLimit($this->OnePara, $this->TwoPara) as $Key) {
-                    $Result[] = array(
-                        'date' => $Key->eq_date,
-                        'time' => $Key->eq_time,
-                        'latitude' => $Key->eq_latitude,
-                        'longitude' => $Key->eq_longitude,
-                        'depth' => $Key->eq_depth,
-                        'md' => $Key->eq_md,
-                        'ml' => $Key->eq_ml,
-                        'mw' => $Key->eq_mw,
-                        'location' => $Key->eq_location,
-                        'revize' => $Key->eq_revize,
-                    );
+        if (!empty($onePara) && is_numeric($onePara) || !empty($twoPara) && is_numeric($twoPara)) {
+            if ($onePara != 0) {
+                $result = [];
+                foreach ($this->eqmodel->getLimit($onePara, $twoPara) as $key) {
+                    $result[] = [
+                        'date' => $key->eq_date,
+                        'time' => $key->eq_time,
+                        'latitude' => $key->eq_latitude,
+                        'longitude' => $key->eq_longitude,
+                        'depth' => $key->eq_depth,
+                        'md' => $key->eq_md,
+                        'ml' => $key->eq_ml,
+                        'mw' => $key->eq_mw,
+                        'location' => $key->eq_location,
+                        'revize' => $key->eq_revize,
+                    ];
                 }
-                return print_r(json_encode($Result));
+                return print_r(json_encode($result));
             } else {
-                print_r(json_encode(array('status' => false, 'description' => 'Invalid number')));
+                return print_r(json_encode(['status' => false, 'description' => 'Geçersiz sayı']));
             }
-
         } else {
-            print_r(json_encode(array('status' => false, 'description' => 'Invalid parameter, api/limit/1')));
+            return print_r(json_encode(['status' => false, 'description' => 'Geçersiz parametre, api/limit/1']));
         }
-
     }
 
-    /***
+    /**
      * @return string|true
      */
     public function date()
     {
-        if (empty($this->uri->segment(3))) print_r(json_encode(array('status' => false, 'description' => 'Invalid date parameter')));
-        //Parameters
-        $this->OnePara = $this->uri->segment(3);
-        $this->TwoPara = $this->uri->segment(4);
-        $this->ThreePara = abs($this->uri->segment(5));
-        $this->Limit = 0;
-        //DateTime Validated
-        if (IsDateTime($this->OnePara)) {
+        if (empty($this->uri->segment(3))) {
+            return print_r(json_encode(['status' => false, 'description' => 'Geçersiz tarih parametresi']));
+        }
+        // Parametreler
+        $onePara = $this->uri->segment(3);
+        $twoPara = $this->uri->segment(4);
+        $threePara = abs($this->uri->segment(5));
+        $limit = 0;
+        // Tarih Doğrulama
+        if (isDateTime($onePara)) {
+            // Tarihi Dönüştür
+            $onePara = date("Y-m-d", strtotime($this->uri->segment(3)));
 
-            //Date Convert
-            $this->OnePara = date("Y-m-d", strtotime($this->uri->segment(3)));
-
-            //Limit Control
-            if (!empty($this->TwoPara) && $this->TwoPara == 'limit' && !empty($this->ThreePara) && is_numeric($this->ThreePara)) {
-                $this->Limit = $this->ThreePara;
-            } else $this->Limit = 500;
-
-
-            //Data Control
-            if ($this->eqmodel->GetDate($this->OnePara, $this->Limit)) {
-
-                foreach ($this->eqmodel->GetDate($this->OnePara, $this->Limit) as $Key) {
-                    $Result[] = array(
-                        'date' => $Key->eq_date,
-                        'time' => $Key->eq_time,
-                        'latitude' => $Key->eq_latitude,
-                        'longitude' => $Key->eq_longitude,
-                        'depth' => $Key->eq_depth,
-                        'md' => $Key->eq_md,
-                        'ml' => $Key->eq_ml,
-                        'mw' => $Key->eq_mw,
-                        'location' => $Key->eq_location,
-                        'revize' => $Key->eq_revize,
-                    );
-                }
-                if (!empty($Result)) {
-                    return print_r(json_encode($Result));
-                }
-
+            // Limit Kontrolü
+            if (!empty($twoPara) && $twoPara == 'limit' && !empty($threePara) && is_numeric($threePara)) {
+                $limit = $threePara;
+            } else {
+                $limit = 500;
             }
 
+            // Veri Kontrolü
+            $result = [];
+            if ($this->eqmodel->getDate($onePara, $limit)) {
+                foreach ($this->eqmodel->getDate($onePara, $limit) as $key) {
+                    $result[] = [
+                        'date' => $key->eq_date,
+                        'time' => $key->eq_time,
+                        'latitude' => $key->eq_latitude,
+                        'longitude' => $key->eq_longitude,
+                        'depth' => $key->eq_depth,
+                        'md' => $key->eq_md,
+                        'ml' => $key->eq_ml,
+                        'mw' => $key->eq_mw,
+                        'location' => $key->eq_location,
+                        'revize' => $key->eq_revize,
+                    ];
+                }
+                if (!empty($result)) {
+                    return print_r(json_encode($result));
+                }
+            }
         } else {
-            print_r(json_encode(array('status' => false, 'description' => 'Invalid date format')));
+            return print_r(json_encode(['status' => false, 'description' => 'Geçersiz tarih formatı']));
         }
-
     }
 
-    /***
+    /**
      * @return string|true
      */
     public function location()
     {
-        $this->OnePara = mb_strtoupper(TurkishUpper(urldecode($this->uri->segment(3))));
-        $this->TwoPara = $this->uri->segment(4);
-        $this->Three = abs($this->uri->segment(5));
-        $this->Limit = 0;
+        $onePara = mb_strtoupper(TurkishUpper(urldecode($this->uri->segment(3))));
+        $twoPara = $this->uri->segment(4);
+        $threePara = abs($this->uri->segment(5));
+        $limit = 0;
 
-        if (!empty($this->OnePara)) {
-            if (strlen($this->OnePara) >= 3) {
+        if (!empty($onePara)) {
+            if (strlen($onePara) >= 3) {
+                // Limit Kontrolü
+                if (!empty($twoPara) && $twoPara == 'limit' && !empty($threePara) && is_numeric($threePara)) {
+                    $limit = $threePara;
+                } else {
+                    $limit = 500;
+                }
 
-                //Limit Control
-                if (!empty($this->TwoPara) && $this->TwoPara == 'limit' && !empty($this->Three) && is_numeric($this->Three)) {
-                    $this->Limit = $this->Three;
-                } else $this->Limit = 500;
-
-                if ($this->eqmodel->GetLocation($this->OnePara, $this->Limit)) {
-
-                    foreach ($this->eqmodel->GetLocation($this->OnePara, $this->Limit) as $Key) {
-                        $Result[] = array(
-                            'date' => $Key->eq_date,
-                            'time' => $Key->eq_time,
-                            'latitude' => $Key->eq_latitude,
-                            'longitude' => $Key->eq_longitude,
-                            'depth' => $Key->eq_depth,
-                            'md' => $Key->eq_md,
-                            'ml' => $Key->eq_ml,
-                            'mw' => $Key->eq_mw,
-                            'location' => $Key->eq_location,
-                            'revize' => $Key->eq_revize,
-                        );
+                $result = [];
+                if ($this->eqmodel->getLocation($onePara, $limit)) {
+                    foreach ($this->eqmodel->getLocation($onePara, $limit) as $key) {
+                        $result[] = [
+                            'date' => $key->eq_date,
+                            'time' => $key->eq_time,
+                            'latitude' => $key->eq_latitude,
+                            'longitude' => $key->eq_longitude,
+                            'depth' => $key->eq_depth,
+                            'md' => $key->eq_md,
+                            'ml' => $key->eq_ml,
+                            'mw' => $key->eq_mw,
+                            'location' => $key->eq_location,
+                            'revize' => $key->eq_revize,
+                        ];
                     }
-                    if (!empty($Result)) {
-                        return print_r(json_encode($Result));
+                    if (!empty($result)) {
+                        return print_r(json_encode($result));
                     }
-
                 }
             } else {
-                print_r(json_encode(array('status' => false, 'description' => 'Location information cannot be less than 3 characters')));
+                return print_r(json_encode(['status' => false, 'description' => 'Konum bilgisi 3 karakterden az olamaz']));
             }
         } else {
-            print_r(json_encode(array('status' => false, 'description' => 'Invalid location parameter')));
+            return print_r(json_encode(['status' => false, 'description' => 'Geçersiz konum parametresi']));
         }
     }
 
-    /***
+    /**
      * @return string|true
      */
     public function between()
     {
-
-        if (empty($this->uri->segment(3)) || empty($this->uri->segment(4))) print_r(json_encode(array('status' => false, 'description' => 'Location information cannot be less than 2 characters.')));
-
-        //Parameters
-        $this->OnePara = $this->uri->segment(3);
-        $this->TwoPara = $this->uri->segment(4);
-        $this->ThreePara = $this->uri->segment(5);
-        $this->FourPara = abs($this->uri->segment(6));
-        $this->Limit = 0;
-        //DateTime Validated
-        if (IsDateTime($this->OnePara) && IsDateTime($this->TwoPara)) {
-
-            //Date Convert
-            $this->OnePara = date("Y-m-d", strtotime($this->uri->segment(3)));
-            $this->TwoPara = date("Y-m-d", strtotime($this->uri->segment(4)));
-
-            //Limit Control
-            if (!empty($this->ThreePara) && $this->ThreePara == 'limit' && !empty($this->FourPara) && is_numeric($this->FourPara)) {
-                $this->Limit = $this->FourPara;
-            } else $this->Limit = 500;
-
-
-            //Data Control
-            if ($this->eqmodel->GetBetweenDate($this->OnePara, $this->TwoPara, $this->Limit)) {
-
-                foreach ($this->eqmodel->GetBetweenDate($this->OnePara, $this->TwoPara, $this->Limit) as $Key) {
-                    $Result[] = array(
-                        'date' => $Key->eq_date,
-                        'time' => $Key->eq_time,
-                        'latitude' => $Key->eq_latitude,
-                        'longitude' => $Key->eq_longitude,
-                        'depth' => $Key->eq_depth,
-                        'md' => $Key->eq_md,
-                        'ml' => $Key->eq_ml,
-                        'mw' => $Key->eq_mw,
-                        'location' => $Key->eq_location,
-                        'revize' => $Key->eq_revize,
-                    );
-                }
-                if (!empty($Result)) {
-                    return print_r(json_encode($Result));
-                }
-
-            }
-
-        } else {
-            print_r(json_encode(array('status' => false, 'description' => 'Invalid date format')));
+        if (empty($this->uri->segment(3)) || empty($this->uri->segment(4))) {
+            return print_r(json_encode(['status' => false, 'description' => 'Konum bilgisi 2 karakterden az olamaz.']));
         }
 
+        // Parametreler
+        $onePara = $this->uri->segment(3);
+        $twoPara = $this->uri->segment(4);
+        $threePara = $this->uri->segment(5);
+        $fourPara = abs($this->uri->segment(6));
+        $limit = 0;
+
+        // Tarih Doğrulama
+        if (isDateTime($onePara) && isDateTime($twoPara)) {
+            // Tarihi Dönüştür
+            $onePara = date("Y-m-d", strtotime($this->uri->segment(3)));
+            $twoPara = date("Y-m-d", strtotime($this->uri->segment(4)));
+
+            // Limit Kontrolü
+            if (!empty($threePara) && $threePara == 'limit' && !empty($fourPara) && is_numeric($fourPara)) {
+                $limit = $fourPara;
+            } else {
+                $limit = 500;
+            }
+
+            // Veri Kontrolü
+            $result = [];
+            if ($this->eqmodel->getBetweenDate($onePara, $twoPara, $limit)) {
+                foreach ($this->eqmodel->getBetweenDate($onePara, $twoPara, $limit) as $key) {
+                    $result[] = [
+                        'date' => $key->eq_date,
+                        'time' => $key->eq_time,
+                        'latitude' => $key->eq_latitude,
+                        'longitude' => $key->eq_longitude,
+                        'depth' => $key->eq_depth,
+                        'md' => $key->eq_md,
+                        'ml' => $key->eq_ml,
+                        'mw' => $key->eq_mw,
+                        'location' => $key->eq_location,
+                        'revize' => $key->eq_revize,
+                    ];
+                }
+                if (!empty($result)) {
+                    return print_r(json_encode($result));
+                }
+            }
+        } else {
+            return print_r(json_encode(['status' => false, 'description' => 'Geçersiz tarih formatı']));
+        }
     }
 
     /**
@@ -233,20 +231,19 @@ class Api extends CI_Controller
      */
     public function cronjob()
     {
-        foreach (json_decode($this->eqlib->Earth()) as $Eq) {
-            $this->eqmodel->Add(array(
-                'eq_date' => $Eq->Date,
-                'eq_time' => $Eq->Time,
-                'eq_latitude' => $Eq->Latitude,
-                'eq_longitude' => $Eq->Longitude,
-                'eq_depth' => $Eq->Depth,
-                'eq_md' => $Eq->Md,
-                'eq_ml' => $Eq->Ml,
-                'eq_mw' => $Eq->Mw,
-                'eq_location' => $Eq->Location,
-                'eq_revize' => $Eq->Revize
-            ));
+        foreach (json_decode($this->eqlib->Earth()) as $eq) {
+            $this->eqmodel->add([
+                'eq_date' => $eq->Date,
+                'eq_time' => $eq->Time,
+                'eq_latitude' => $eq->Latitude,
+                'eq_longitude' => $eq->Longitude,
+                'eq_depth' => $eq->Depth,
+                'eq_md' => $eq->Md,
+                'eq_ml' => $eq->Ml,
+                'eq_mw' => $eq->Mw,
+                'eq_location' => $eq->Location,
+                'eq_revize' => $eq->Revize
+            ]);
         }
     }
-
 }
